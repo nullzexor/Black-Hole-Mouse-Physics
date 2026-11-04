@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Magnetic Particle Vortex</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      overflow: hidden;
+      cursor: crosshair;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    canvas { display: block; }
+    .hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="hint"></div>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const mouse = { x: width / 2, y: height / 2, pulse: 0 };
+    const colors = ['#00f5d4', '#00bbf9', '#9b5de5', '#f15bb5', '#ffffff'];
+    const particles = [];
+    
+    // Upgraded to 800 stars for a dense galaxy look
+    const PARTICLE_COUNT = 800;
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+
+    // Click to blast stars outward, then watch them rush back in
+    window.addEventListener('mousedown', () => {
+      mouse.pulse = 22;
+      particles.forEach((p) => {
+        const dx = p.x - mouse.x;
+        const dy = p.y - mouse.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        if (dist < 350) {
+          const force = (350 - dist) / 6;
+          p.vx += (dx / dist) * force + (Math.random() - 0.5) * 6;
+          p.vy += (dy / dist) * force + (Math.random() - 0.5) * 6;
+        }
+      });
+    });
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = (Math.random() - 0.5) * 2;
+        this.size = Math.random() * 2 + 0.8;
+        this.color = colors[Math.floor(Math.random() * colors.length)];
+        // Each star gets slightly different magnetic speed for organic swarming
+        this.pullSpeed = Math.random() * 0.35 + 0.25;
+      }
+
+      update() {
+        const dx = mouse.x - this.x;
+        const dy = mouse.y - this.y;
+        const dist = Math.hypot(dx, dy) || 1;
+
+        // Strong inward magnetic pull toward the cursor from anywhere on screen
+        if (dist > 18) {
+          const pull = Math.min(1.8, 140 / (dist + 40)) * this.pullSpeed;
+          // Direct attraction to cursor + subtle orbital swirl so they don't collapse into 1 pixel
+          this.vx += (dx / dist) * pull - (dy / dist) * pull * 0.22;
+          this.vy += (dy / dist) * pull + (dx / dist) * pull * 0.22;
+        } else {
+          // Keep spinning rapidly right around the cursor tip
+          this.vx += -(dy / dist) * 0.6;
+          this.vy += (dx / dist) * 0.6;
+        }
+
+        // Smooth damping so stars glide instead of overshooting
+        this.vx *= 0.92;
+        this.vy *= 0.92;
+        this.x += this.vx;
+        this.y += this.vy;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push(new Particle());
+    }
+
+    function animate() {
+      // Motion trail effect
+      ctx.fillStyle = 'rgba(5, 5, 8, 0.22)';
+      ctx.fillRect(0, 0, width, height);
+
+      // Glowing core at cursor position
+      const gradient = ctx.createRadialGradient(mouse.x, mouse.y, 2, mouse.x, mouse.y, 90);
+      gradient.addColorStop(0, 'rgba(0, 245, 212, 0.25)');
+      gradient.addColorStop(1, 'rgba(0, 245, 212, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, 90, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Shockwave ring on click
+      if (mouse.pulse > 0) {
+        ctx.beginPath();
+        ctx.arc(mouse.x, mouse.y, (24 - mouse.pulse) * 15, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(0, 245, 212, ${mouse.pulse / 22})`;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        mouse.pulse -= 0.9;
+      }
+
+      particles.forEach((p) => {
+        p.update();
+        p.draw();
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
